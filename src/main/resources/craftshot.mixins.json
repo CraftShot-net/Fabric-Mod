@@ -1,0 +1,14 @@
+{
+  "required": true,
+  "package": "net.craftshot.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": [
+    "client.ScreenshotMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  },
+  "overwrites": {
+    "requireAnnotations": true
+	}
+}

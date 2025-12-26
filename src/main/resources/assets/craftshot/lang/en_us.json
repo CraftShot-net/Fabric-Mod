@@ -1,0 +1,15 @@
+{
+  "craftshot.command.missingArgument": "Please specify a file to upload.",
+  "craftshot.command.invalidFile": "The specified file does not exist.",
+  "craftshot.command.invalidSession": "Could not verify your session.",
+  "craftshot.command.uploading": "Uploading screenshot...",
+  "craftshot.command.failed": "Upload failed. Check console for details.",
+  "craftshot.command.success": "Upload successful!",
+  "craftshot.command.copyUrl": "[Copy URL]",
+  "craftshot.command.hoverCopyUrl": "Click to copy the link",
+  "craftshot.command.urlCopied": "URL copied to clipboard.",
+
+  "craftshot.screenshot.clickHere": "[UPLOAD]",
+  "craftshot.screenshot.hoverText": "Click to upload to CraftShot",
+  "craftshot.screenshot.message": "Screenshot saved! %s"
+}

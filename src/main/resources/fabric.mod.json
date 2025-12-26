@@ -1,0 +1,38 @@
+{
+	"schemaVersion": 1,
+	"id": "craftshot",
+	"version": "${version}",
+	"name": "CraftShot",
+	"description": "The most social mod & addon for Minecraft. Share your screenshots, build your profile, get followers!",
+	"authors": [
+		"Timeox2k"
+	],
+	"contact": {
+		"homepage": "https://craftshot.net",
+		"sources": "https://github.com/FabricMC/fabric-example-mod"
+	},
+	"license": "CC0-1.0",
+	"icon": "assets/craftshot/icon.png",
+	"environment": "*",
+	"entrypoints": {
+		"main": [
+			"net.craftshot.CraftShot"
+		],
+		"client": [
+			"net.craftshot.CraftShotClient"
+		]
+	},
+	"mixins": [
+		"craftshot.mixins.json",
+		{
+			"config": "craftshot.client.mixins.json",
+			"environment": "client"
+		}
+	],
+	"depends": {
+		"fabricloader": ">=0.18.3",
+		"minecraft": "~1.21.11",
+		"java": ">=21",
+		"fabric-api": "*"
+	}
+}

@@ -11,5 +11,8 @@
 
   "craftshot.screenshot.clickHere": "[UPLOAD]",
   "craftshot.screenshot.hoverText": "Click to upload to CraftShot",
-  "craftshot.screenshot.message": "Screenshot saved! %s"
+  "craftshot.screenshot.message": "Screenshot saved! %s",
+
+  "craftshot.update.available": "CraftShot %s available!",
+  "craftshot.update.download": "Click to download"
 }

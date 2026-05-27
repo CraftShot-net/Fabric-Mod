@@ -1,0 +1,19 @@
+{
+  "craftshot.command.missingArgument": "Bitte gib eine Datei zum Hochladen an.",
+  "craftshot.command.invalidFile": "Die angegebene Datei existiert nicht.",
+  "craftshot.command.invalidSession": "Deine Sitzung konnte nicht verifiziert werden.",
+  "craftshot.command.uploading": "Screenshot wird hochgeladen...",
+  "craftshot.command.failed": "Upload fehlgeschlagen. Prüfe die Konsole für Details.",
+  "craftshot.command.success": "Upload erfolgreich!",
+  "craftshot.command.copyUrl": "[URL kopieren]",
+  "craftshot.command.hoverCopyUrl": "Klicken, um den Link zu kopieren",
+  "craftshot.command.urlCopied": "URL in die Zwischenablage kopiert.",
+
+  "craftshot.screenshot.clickHere": "[HOCHLADEN]",
+  "craftshot.screenshot.hoverText": "Klicken, um auf CraftShot hochzuladen",
+  "craftshot.screenshot.message": "Screenshot gespeichert! %s",
+
+  "craftshot.update.available": "CraftShot %s verfügbar!",
+  "craftshot.update.download": "Klicken zum Herunterladen"
+}
+

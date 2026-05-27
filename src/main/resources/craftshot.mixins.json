@@ -3,7 +3,8 @@
   "package": "net.craftshot.mixin",
   "compatibilityLevel": "JAVA_21",
   "mixins": [
-    "client.ScreenshotMixin"
+    "client.ScreenshotMixin",
+    "client.TitleScreenUpdateMixin"
   ],
   "injectors": {
     "defaultRequire": 1

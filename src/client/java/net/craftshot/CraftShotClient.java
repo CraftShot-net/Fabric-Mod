@@ -10,5 +10,6 @@ public class CraftShotClient implements ClientModInitializer {
         ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) -> {
             CraftShotCommand.register(dispatcher);
         });
+        LiveScreenshotTask.register();
     }
 }

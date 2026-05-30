@@ -14,5 +14,8 @@
   "craftshot.screenshot.message": "Screenshot saved! %s",
 
   "craftshot.update.available": "CraftShot %s available!",
-  "craftshot.update.download": "Click to download"
+  "craftshot.update.download": "Click to download",
+
+  "craftshot.live.enabled": "Live screenshot every second enabled. Saves to screenshots/live.png",
+  "craftshot.live.disabled": "Live screenshot disabled."
 }

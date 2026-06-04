@@ -33,6 +33,9 @@
   "craftshot.dm.notification.image": "[Bild]",
 
   "craftshot.dm.empty.title": "Noch keine Konversationen.",
-  "craftshot.dm.empty.hint": "Sammle Mutuals auf craftshot.net um sie hier zu sehen."
+  "craftshot.dm.empty.hint": "Sammle Mutuals auf craftshot.net um sie hier zu sehen.",
+
+  "key.category.craftshot.keys": "CraftShot",
+  "key.craftshot.open_dms": "DMs öffnen"
 }
 

@@ -33,5 +33,8 @@
   "craftshot.dm.notification.image": "[Image]",
 
   "craftshot.dm.empty.title": "No conversations yet.",
-  "craftshot.dm.empty.hint": "Collect Mutuals on craftshot.net to see them here."
+  "craftshot.dm.empty.hint": "Collect Mutuals on craftshot.net to see them here.",
+
+  "key.category.craftshot.keys": "CraftShot",
+  "key.craftshot.open_dms": "Open DMs"
 }

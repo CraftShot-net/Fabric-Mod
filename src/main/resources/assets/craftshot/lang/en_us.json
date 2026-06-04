@@ -17,5 +17,21 @@
   "craftshot.update.download": "Click to download",
 
   "craftshot.live.enabled": "Live screenshot every second enabled. Saves to screenshots/live.png",
-  "craftshot.live.disabled": "Live screenshot disabled."
+  "craftshot.live.disabled": "Live screenshot disabled.",
+  "craftshot.live.openInBrowser": "Open in browser",
+  "craftshot.live.copyButton": " [Copy]",
+  "craftshot.live.copyToClipboard": "Copy URL to clipboard",
+  "craftshot.live.urlLabel": "Live URL: ",
+
+  "craftshot.dm.title": "CraftShot Messages",
+  "craftshot.dm.messagePlaceholder": "Message...",
+  "craftshot.dm.send": "Send",
+  "craftshot.dm.chats": "Chats",
+  "craftshot.dm.chatWith": "Chat with %s",
+
+  "craftshot.dm.notification.from": "%s",
+  "craftshot.dm.notification.image": "[Image]",
+
+  "craftshot.dm.empty.title": "No conversations yet.",
+  "craftshot.dm.empty.hint": "Collect Mutuals on craftshot.net to see them here."
 }

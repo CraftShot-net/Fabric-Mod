@@ -17,17 +17,17 @@ import java.util.function.Consumer;
 @Mixin(Screenshot.class)
 public class ScreenshotMixin {
 
-    @ModifyVariable(method = "grab(Ljava/io/File;Lcom/mojang/blaze3d/pipeline/RenderTarget;Ljava/util/function/Consumer;)V", at = @At("HEAD"), argsOnly = true)
-    private static Consumer<Component> wrapMessageConsumer(Consumer<Component> originalConsumer) {
+    @ModifyVariable(method = "grab(Ljava/io/File;Lcom/mojang/blaze3d/pipeline/RenderTarget;Ljava/util/function/Consumer;)V", at = @At("HEAD"), argsOnly = true, name = "callback")
+    private static Consumer<Component> wrapMessageConsumer(Consumer<Component> callback) {
 
         return (Component vanillaMessage) -> {
-            originalConsumer.accept(vanillaMessage);
+            callback.accept(vanillaMessage);
 
             try {
                 File screenshotsDir = new File(Minecraft.getInstance().gameDirectory, "screenshots");
                 if (!screenshotsDir.exists() || !screenshotsDir.isDirectory()) return;
 
-                File[] files = screenshotsDir.listFiles((dir, name) -> name.toLowerCase().endsWith(".png"));
+                File[] files = screenshotsDir.listFiles((_, name) -> name.toLowerCase().endsWith(".png"));
                 if (files == null || files.length == 0) return;
 
                 File newest = files[0];
@@ -43,7 +43,7 @@ public class ScreenshotMixin {
 
                 MutableComponent fullMessage = Component.literal("§8[§6CraftShot§8] ").append(Component.translatable("craftshot.screenshot.message", clickActionPart));
 
-                originalConsumer.accept(fullMessage);
+                callback.accept(fullMessage);
 
             } catch (Exception e) {
                 System.err.println("[CraftShot] Error processing screenshot: " + e.getMessage());

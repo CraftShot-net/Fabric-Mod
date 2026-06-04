@@ -8,6 +8,7 @@ import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.builder.RequiredArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
 import net.craftshot.LiveScreenshotTask;
+import net.craftshot.client.gui.DmMessageToast;
 import net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
@@ -34,12 +35,17 @@ public class CraftShotCommand {
 
     public static void register(CommandDispatcher<FabricClientCommandSource> dispatcher) {
         dispatcher.register(LiteralArgumentBuilder.<FabricClientCommandSource>literal("craftshot")
-                // Sub-Command: /craftshot <file>
-                .then(RequiredArgumentBuilder.<FabricClientCommandSource, String>argument("file", StringArgumentType.greedyString()).executes(CraftShotCommand::executeUpload))
+                // Literals first — must come before greedyString to avoid being swallowed
                 // Sub-Command: /craftshot copy <url>
                 .then(LiteralArgumentBuilder.<FabricClientCommandSource>literal("copy").then(RequiredArgumentBuilder.<FabricClientCommandSource, String>argument("url", StringArgumentType.greedyString()).executes(CraftShotCommand::executeCopy)))
                 // Sub-Command: /craftshot live
-                .then(LiteralArgumentBuilder.<FabricClientCommandSource>literal("live").executes(CraftShotCommand::executeLiveToggle)));
+                .then(LiteralArgumentBuilder.<FabricClientCommandSource>literal("live").executes(CraftShotCommand::executeLiveToggle))
+                // Hidden: /craftshot testNotification <username>
+                .then(LiteralArgumentBuilder.<FabricClientCommandSource>literal("testNotification")
+                        .then(RequiredArgumentBuilder.<FabricClientCommandSource, String>argument("username", StringArgumentType.word())
+                                .executes(CraftShotCommand::executeTestNotification)))
+                // Sub-Command: /craftshot <file>  — greedy, must be last
+                .then(RequiredArgumentBuilder.<FabricClientCommandSource, String>argument("file", StringArgumentType.greedyString()).executes(CraftShotCommand::executeUpload)));
     }
 
     private static int executeUpload(CommandContext<FabricClientCommandSource> context) {
@@ -68,7 +74,6 @@ public class CraftShotCommand {
         try {
             uploadFile(uploadFile, accessToken, serverIp, source);
         } catch (IOException e) {
-            e.printStackTrace();
             source.sendFeedback(getPrefix().append(Component.translatable("craftshot.command.failed").withStyle(ChatFormatting.RED)));
         }
 
@@ -89,26 +94,31 @@ public class CraftShotCommand {
                             .withColor(ChatFormatting.AQUA)
                             .withUnderlined(true)
                             .withClickEvent(new ClickEvent.OpenUrl(URI.create(url)))
-                            .withHoverEvent(new HoverEvent.ShowText(Component.literal("Open in browser"))));
+                            .withHoverEvent(new HoverEvent.ShowText(Component.translatable("craftshot.live.openInBrowser"))));
 
-            MutableComponent copyBtn = Component.literal(" [Copy]")
+            MutableComponent copyBtn = Component.translatable("craftshot.live.copyButton")
                     .withStyle(style -> style
                             .withColor(ChatFormatting.GOLD)
                             .withClickEvent(new ClickEvent.CopyToClipboard(url))
-                            .withHoverEvent(new HoverEvent.ShowText(Component.literal("Copy URL to clipboard"))));
+                            .withHoverEvent(new HoverEvent.ShowText(Component.translatable("craftshot.live.copyToClipboard"))));
 
             source.sendFeedback(getPrefix()
                     .append(Component.translatable("craftshot.live.enabled").withStyle(ChatFormatting.GREEN)));
             source.sendFeedback(getPrefix()
-                    .append(Component.literal("Live URL: ")).append(link).append(copyBtn));
+                    .append(Component.translatable("craftshot.live.urlLabel")).append(link).append(copyBtn));
         } else {
             source.sendFeedback(getPrefix().append(Component.translatable("craftshot.live.disabled").withStyle(ChatFormatting.RED)));
         }
         return 1;
     }
 
-    private static int executeCopy(CommandContext<FabricClientCommandSource> context) {
-        String url = StringArgumentType.getString(context, "url");
+    private static int executeTestNotification(CommandContext<FabricClientCommandSource> context) {
+        String username = StringArgumentType.getString(context, "username");
+        DmMessageToast.show(username, "This is a test notification!", net.craftshot.client.gui.CraftShotDMScreen.getSkinAsyncPublic(username));
+        return 1;
+    }
+
+    private static int executeCopy(CommandContext<FabricClientCommandSource> context) {        String url = StringArgumentType.getString(context, "url");
         Minecraft.getInstance().keyboardHandler.setClipboard(url);
         context.getSource().sendFeedback(getPrefix().append(Component.translatable("craftshot.command.urlCopied").withStyle(ChatFormatting.GREEN)));
         return 1;
@@ -138,11 +148,9 @@ public class CraftShotCommand {
                 Util.getPlatform().openUri(url + "?auth=" + token);
 
             } catch (Exception e) {
-                e.printStackTrace();
                 source.sendFeedback(getPrefix().append(Component.translatable("craftshot.command.failed").withStyle(ChatFormatting.RED)));
             }
-        }).exceptionally(ex -> {
-            ex.printStackTrace();
+        }).exceptionally(_ -> {
             source.sendFeedback(getPrefix().append(Component.translatable("craftshot.command.failed").withStyle(ChatFormatting.RED)));
             return null;
         });

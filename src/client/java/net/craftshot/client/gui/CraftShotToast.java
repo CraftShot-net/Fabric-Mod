@@ -12,7 +12,7 @@ import org.jspecify.annotations.NonNull;
 
 import java.util.function.Supplier;
 
-public class DmMessageToast implements Toast {
+public class CraftShotToast implements Toast {
 
     private static final long DISPLAY_TIME_MS = 5000L;
 
@@ -21,7 +21,7 @@ public class DmMessageToast implements Toast {
     private final Supplier<PlayerSkin> skinSupplier;
     private boolean hide = false;
 
-    private DmMessageToast(String senderName, String messageExcerpt, Supplier<PlayerSkin> skinSupplier) {
+    private CraftShotToast(String senderName, String messageExcerpt, Supplier<PlayerSkin> skinSupplier) {
         this.senderName = senderName;
         this.messageExcerpt = messageExcerpt;
         this.skinSupplier = skinSupplier;
@@ -29,7 +29,7 @@ public class DmMessageToast implements Toast {
 
     public static void show(String senderName, String messageExcerpt, Supplier<PlayerSkin> skinSupplier) {
         Minecraft.getInstance().getToastManager().addToast(
-                new DmMessageToast(senderName, messageExcerpt, skinSupplier)
+                new CraftShotToast(senderName, messageExcerpt, skinSupplier)
         );
     }
 

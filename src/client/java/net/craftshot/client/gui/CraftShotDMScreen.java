@@ -100,6 +100,27 @@ public class CraftShotDMScreen extends Screen {
         super.onClose();
     }
 
+    public String getUsernameByOtherUserId(long userId) {
+        for (Conversation conv : conversations) {
+            if (conv.otherUserId == userId) return conv.name;
+        }
+        return null;
+    }
+
+    public boolean isUserOnline(long userId) {
+        for (Conversation conv : conversations) {
+            if (conv.otherUserId == userId) return conv.isOnline;
+        }
+        return false;
+    }
+
+    public String getServerByOtherUserId(long userId) {
+        for (Conversation conv : conversations) {
+            if (conv.otherUserId == userId) return conv.serverIp;
+        }
+        return null;
+    }
+
     private void loadConversationsAsync() {
         CraftShotApiClient.fetchConversationsWithCache().thenAccept(result -> Minecraft.getInstance().execute(() -> {
             long preferredActiveId = getCurrentActiveConversationId();

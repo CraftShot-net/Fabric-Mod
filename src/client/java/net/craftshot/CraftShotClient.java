@@ -6,7 +6,7 @@ import com.mojang.blaze3d.platform.InputConstants;
 import net.craftshot.client.api.CraftShotApiClient;
 import net.craftshot.client.api.ReverbClient;
 import net.craftshot.client.gui.CraftShotDMScreen;
-import net.craftshot.client.gui.DmMessageToast;
+import net.craftshot.client.gui.CraftShotToast;
 import net.craftshot.command.CraftShotCommand;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
@@ -115,9 +115,25 @@ public class CraftShotClient implements ClientModInitializer {
                             String server = data.has("current_server") && !data.get("current_server").isJsonNull()
                                     ? data.get("current_server").getAsString() : null;
 
-                            Minecraft.getInstance().execute(() ->
-                                    CraftShotDMScreen.getInstance().handlePresenceUpdate(userId, isOnline, server)
-                            );
+                            Minecraft.getInstance().execute(() -> {
+                                CraftShotDMScreen instance = CraftShotDMScreen.getInstance();
+
+                                String username = instance.getUsernameByOtherUserId(userId);
+                                boolean wasOnline = instance.isUserOnline(userId);
+                                String oldServer = instance.getServerByOtherUserId(userId);
+
+                                instance.handlePresenceUpdate(userId, isOnline, server);
+
+                                if (username == null) return;
+
+                                if (!wasOnline && isOnline) {
+                                    CraftShotToast.show(username, "Online", CraftShotDMScreen.getSkinAsyncPublic(username));
+                                } else if (wasOnline && !isOnline) {
+                                    CraftShotToast.show(username, "Offline", CraftShotDMScreen.getSkinAsyncPublic(username));
+                                } else if (isOnline && server != null && !server.equals(oldServer)) {
+                                    CraftShotToast.show(username, "🎮 " + server, CraftShotDMScreen.getSkinAsyncPublic(username));
+                                }
+                            });
                         }
                     }
             );
@@ -146,7 +162,7 @@ public class CraftShotClient implements ClientModInitializer {
 
             if (!dmScreenOpen) {
                 String toastText = !content.isEmpty() ? content : attachmentUrl != null ? Component.translatable("craftshot.dm.notification.image").getString() : "…";
-                DmMessageToast.show(senderName, toastText, CraftShotDMScreen.getSkinAsyncPublic(senderName));
+                CraftShotToast.show(senderName, toastText, CraftShotDMScreen.getSkinAsyncPublic(senderName));
             }
         } catch (Exception e) {
             System.err.println("JSON Parse Error on incoming live message: " + e.getMessage());

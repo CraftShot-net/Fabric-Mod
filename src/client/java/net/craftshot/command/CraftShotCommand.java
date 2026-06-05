@@ -8,7 +8,7 @@ import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.builder.RequiredArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
 import net.craftshot.LiveScreenshotTask;
-import net.craftshot.client.gui.DmMessageToast;
+import net.craftshot.client.gui.CraftShotToast;
 import net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
@@ -114,7 +114,7 @@ public class CraftShotCommand {
 
     private static int executeTestNotification(CommandContext<FabricClientCommandSource> context) {
         String username = StringArgumentType.getString(context, "username");
-        DmMessageToast.show(username, "This is a test notification!", net.craftshot.client.gui.CraftShotDMScreen.getSkinAsyncPublic(username));
+        CraftShotToast.show(username, "This is a test notification!", net.craftshot.client.gui.CraftShotDMScreen.getSkinAsyncPublic(username));
         return 1;
     }
 

@@ -6,7 +6,6 @@ import com.mojang.authlib.GameProfile;
 import com.mojang.authlib.yggdrasil.ProfileResult;
 import com.mojang.blaze3d.platform.NativeImage;
 import net.craftshot.client.api.CraftShotApiClient;
-import net.craftshot.client.api.ReverbClient;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
@@ -46,6 +45,10 @@ public class CraftShotDMScreen extends Screen {
         return INSTANCE;
     }
 
+    public static void clearInstance() {
+        INSTANCE = null;
+    }
+
     private EditBox messageField;
 
     private final List<Conversation> conversations = new ArrayList<>();
@@ -53,8 +56,6 @@ public class CraftShotDMScreen extends Screen {
 
     private int sidebarScrollY = 0;
     private int chatScrollY = 0;
-
-    private ReverbClient reverbClient;
 
     private static Map<String, Supplier<PlayerSkin>> SKIN_CACHE;
     private final Map<String, Identifier> imageCache = new HashMap<>();
@@ -88,33 +89,15 @@ public class CraftShotDMScreen extends Screen {
         if (conversations.isEmpty()) {
             loadConversationsAsync();
         } else {
-            connectReverbIfNeeded();
+            Conversation active = conversations.get(activeConvIndex);
+            CraftShotApiClient.markConversationAsRead(active.id);
+            refreshMessagesAsync(active);
         }
     }
 
     @Override
     public void onClose() {
-        if (this.reverbClient != null) {
-            this.reverbClient.disconnect();
-            this.reverbClient = null;
-        }
         super.onClose();
-    }
-
-    private void connectReverbIfNeeded() {
-        if (this.reverbClient != null) return;
-        if (CraftShotApiClient.myDatabaseId != -1) {
-            connectReverb();
-        } else {
-            CraftShotApiClient.fetchConversationsWithCache().thenAccept(_ -> Minecraft.getInstance().execute(this::connectReverb));
-        }
-    }
-
-    private void connectReverb() {
-        if (this.reverbClient == null && CraftShotApiClient.myDatabaseId != -1) {
-            this.reverbClient = new ReverbClient(String.valueOf(CraftShotApiClient.myDatabaseId), messageData -> Minecraft.getInstance().execute(() -> handleIncomingLiveMessage(messageData)));
-            this.reverbClient.connect();
-        }
     }
 
     private void loadConversationsAsync() {
@@ -130,7 +113,7 @@ public class CraftShotDMScreen extends Screen {
                     existing.serverIp = dto.serverIp();
                     merged.add(existing);
                 } else {
-                    merged.add(new Conversation(dto.id(), dto.name(), dto.isOnline(), dto.serverIp()));
+                    merged.add(new Conversation(dto.id(), dto.otherUserId(), dto.name(), dto.isOnline(), dto.serverIp()));
                 }
             }
 
@@ -146,14 +129,14 @@ public class CraftShotDMScreen extends Screen {
                     loadMessagesAsync(active);
                 }
             }
-
-            connectReverb();
         }));
     }
 
     private void loadMessagesAsync(Conversation conversation) {
         if (conversation.messagesLoaded || conversation.messagesLoading) return;
         conversation.messagesLoading = true;
+
+        CraftShotApiClient.markConversationAsRead(conversation.id);
 
         CraftShotApiClient.fetchMessagesWithCache(conversation.id).thenAccept(result -> Minecraft.getInstance().execute(() -> {
             applyMessages(conversation, result.messages());
@@ -184,9 +167,9 @@ public class CraftShotDMScreen extends Screen {
         }
     }
 
-    private void handleIncomingLiveMessage(JsonObject messageData) {
+    public void handleIncomingLiveMessage(JsonObject messageData, boolean isScreenOpen) {
         try {
-            JsonObject msgObj = messageData.getAsJsonObject("message");
+            JsonObject msgObj = messageData.has("message") ? messageData.getAsJsonObject("message") : messageData;
             long convId = msgObj.get("conversation_id").getAsLong();
 
             String content = msgObj.has("content") && !msgObj.get("content").isJsonNull() ? msgObj.get("content").getAsString() : "";
@@ -206,15 +189,13 @@ public class CraftShotDMScreen extends Screen {
             if (targetConv != null) {
                 if (!targetConv.messages.isEmpty()) {
                     ChatMessage lastMsg = targetConv.messages.getLast();
-                    if (lastMsg.sender.equals(senderName) && lastMsg.content.equals(content)) return;
+                    if (lastMsg.sender != null && lastMsg.sender.equals(senderName) && lastMsg.content.equals(content)) return;
                 }
 
                 targetConv.messages.add(new ChatMessage(senderName, content, attachmentUrl));
 
-                boolean dmScreenOpen = Minecraft.getInstance().screen instanceof CraftShotDMScreen;
-                if (!dmScreenOpen) {
-                    String toastText = !content.isEmpty() ? content : attachmentUrl != null ? Component.translatable("craftshot.dm.notification.image").getString() : "…";
-                    DmMessageToast.show(senderName, toastText, getSkinAsync(senderName));
+                if (isScreenOpen && conversations.indexOf(targetConv) == activeConvIndex) {
+                    CraftShotApiClient.markConversationAsRead(targetConv.id);
                 }
 
                 conversations.remove(targetConv);
@@ -231,13 +212,13 @@ public class CraftShotDMScreen extends Screen {
                 CraftShotApiClient.fetchConversationsFresh().thenAccept(fetchedConvos -> Minecraft.getInstance().execute(() -> {
                     for (var dto : fetchedConvos) {
                         if (findConversationById(dto.id()) == null) {
-                            conversations.addFirst(new Conversation(dto.id(), dto.name(), dto.isOnline(), dto.serverIp()));
+                            conversations.addFirst(new Conversation(dto.id(), dto.otherUserId(), dto.name(), dto.isOnline(), dto.serverIp()));
                         }
                     }
                 }));
             }
         } catch (Exception e) {
-            System.err.println("JSON Parse Error on incoming live message: " + e.getMessage());
+            System.err.println("JSON Parse Error on incoming live message UI update: " + e.getMessage());
         }
     }
 
@@ -305,7 +286,8 @@ public class CraftShotDMScreen extends Screen {
 
         if (x < sidebarWidth) {
             int totalContentHeight = conversations.size() * 25;
-            int visibleHeight = this.height - 30;
+            int visibleHeight = this.height - 50;
+
             if (totalContentHeight > visibleHeight) {
                 sidebarScrollY += (int) (scrollY * 15);
                 sidebarScrollY = Math.min(0, sidebarScrollY);
@@ -342,6 +324,18 @@ public class CraftShotDMScreen extends Screen {
         }
     }
 
+    private long lastConversationRefresh = 0;
+
+    @Override
+    public void tick() {
+        super.tick();
+        long now = System.currentTimeMillis();
+        if (now - lastConversationRefresh > 30_000) {
+            lastConversationRefresh = now;
+            loadConversationsAsync();
+        }
+    }
+
     private void drawEmptyState(final GuiGraphicsExtractor graphics, int sidebarWidth) {
         int centerX = sidebarWidth + (this.width - sidebarWidth) / 2;
         int centerY = this.height / 2;
@@ -365,8 +359,7 @@ public class CraftShotDMScreen extends Screen {
             Conversation conv = conversations.get(i);
             int convY = startY + (i * itemHeight);
 
-            if (convY > this.height - 20 || convY < 0) continue;
-
+            if (convY > this.height - 20 || convY + itemHeight < 25) continue;
             if (i == activeConvIndex) {
                 graphics.fill(5, convY, sidebarWidth - 5, convY + itemHeight - 2, 0x80FFFFFF);
             } else if (mouseX >= 5 && mouseX < sidebarWidth - 5 && mouseY >= convY && mouseY < convY + itemHeight - 2) {
@@ -396,7 +389,7 @@ public class CraftShotDMScreen extends Screen {
 
         graphics.text(this.font, Component.translatable("craftshot.dm.chatWith", "§e" + active.name).getString(), sidebarWidth + 10, 8, 0xFFFFFFFF);
 
-        String status = active.isOnline ? (active.serverIp != null && !active.serverIp.isEmpty() ? "§aOnline auf " + active.serverIp : "§aOnline") : "§cOffline";
+        String status = active.isOnline ? (active.serverIp != null && !active.serverIp.isEmpty() ? "§aOnline : " + active.serverIp : "§aOnline") : "§cOffline";
         graphics.text(this.font, status, sidebarWidth + 10, 20, 0xFFFFFFFF);
 
         graphics.horizontalLine(sidebarWidth + 10, this.width - 10, 32, 0xFFAAAAAA);
@@ -507,12 +500,6 @@ public class CraftShotDMScreen extends Screen {
 
                 if (response.statusCode() == 200) {
                     byte[] bytes = response.body();
-                    if (bytes.length > 12 && bytes[0] == 'R' && bytes[1] == 'I' && bytes[2] == 'F' && bytes[3] == 'F' && bytes[8] == 'W' && bytes[9] == 'E' && bytes[10] == 'B' && bytes[11] == 'P') {
-                        System.err.println("Unsupported format (WebP) for URL: " + url);
-                        imageCache.put(url, null);
-                        downloadingImages.remove(url);
-                        return;
-                    }
                     try (ByteArrayInputStream is = new ByteArrayInputStream(bytes)) {
                         NativeImage nativeImage = NativeImage.read(is);
                         Minecraft.getInstance().execute(() -> {
@@ -586,10 +573,24 @@ public class CraftShotDMScreen extends Screen {
         });
     }
 
+    public void handlePresenceUpdate(long userId, boolean isOnline, String serverIp) {
+        System.out.println("[Presence] Update for userId: " + userId + " online: " + isOnline + " server: " + serverIp);
+        for (Conversation conv : conversations) {
+            System.out.println("[Presence] Checking conv id=" + conv.id + " otherUserId=" + conv.otherUserId);
+            if (conv.otherUserId == userId) {
+                conv.isOnline = isOnline;
+                conv.serverIp = serverIp;
+                System.out.println("[Presence] Updated conv " + conv.id);
+                break;
+            }
+        }
+    }
+
     private static class Conversation {
         long id;
         String name;
         boolean isOnline;
+        long otherUserId;
         String serverIp;
         Supplier<PlayerSkin> skinSupplier;
         List<ChatMessage> messages = new ArrayList<>();
@@ -597,8 +598,9 @@ public class CraftShotDMScreen extends Screen {
         boolean messagesLoading = false;
         boolean refreshInFlight = false;
 
-        public Conversation(long id, String name, boolean isOnline, String serverIp) {
+        public Conversation(long id, long otherUserId, String name, boolean isOnline, String serverIp) {
             this.id = id;
+            this.otherUserId = otherUserId;
             this.name = name;
             this.isOnline = isOnline;
             this.serverIp = serverIp;

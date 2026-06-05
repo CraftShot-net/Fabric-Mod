@@ -38,6 +38,11 @@ public class CraftShotApiClient {
     private record CachedMessages(List<MessageDTO> messages, long cachedAtMillis) {
     }
 
+    public static void clearCache() {
+        CONVERSATION_CACHE = null;
+        MESSAGE_CACHE.clear();
+    }
+    
     private static volatile CachedConversations CONVERSATION_CACHE;
 
     private static HttpClient createHttpClient() {
@@ -49,9 +54,7 @@ public class CraftShotApiClient {
         return Minecraft.getInstance().getUser().getAccessToken();
     }
 
-    // Aktualisiert: isOnline und serverIp hinzugefügt
-    public record ConversationDTO(long id, String name, boolean isOnline, String serverIp) {
-    }
+    public record ConversationDTO(long id, long otherUserId, String name, boolean isOnline, String serverIp) {}
 
     public record MessageDTO(long id, String sender, String content, String attachmentUrl) {
     }
@@ -86,7 +89,6 @@ public class CraftShotApiClient {
                     if (json.has("my_id") && !json.get("my_id").isJsonNull()) {
                         myDatabaseId = json.get("my_id").getAsLong();
                     }
-
                     JsonArray convosArray = json.getAsJsonArray("conversations");
                     List<ConversationDTO> list = getConversationDTOS(convosArray);
                     CONVERSATION_CACHE = new CachedConversations(List.copyOf(list), System.currentTimeMillis());
@@ -102,29 +104,64 @@ public class CraftShotApiClient {
         });
     }
 
+    public static void markConversationAsRead(long conversationId) {
+        String token = Minecraft.getInstance().getUser().getAccessToken();
+
+        String url = "https://craftshot.net/api/v2/messages/" + conversationId + "/read";
+
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(url))
+                .header("Authorization", "Bearer " + token)
+                .header("Accept", "application/json")
+                .POST(HttpRequest.BodyPublishers.noBody()) // Leerer Body
+                .build();
+
+        HttpClient.newHttpClient().sendAsync(request, HttpResponse.BodyHandlers.ofString())
+                .thenApply(response -> {
+                    if (response.statusCode() == 200 || response.statusCode() == 204) {
+                        return true;
+                    } else {
+                        System.err.println("[API Error] Failed to mark chat as read - Status: " + response.statusCode());
+                        return false;
+                    }
+                })
+                .exceptionally(e -> {
+                    System.err.println("[API Error] Exception while marking chat as read: " + e.getMessage());
+                    return false;
+                });
+    }
+
     private static @NonNull List<ConversationDTO> getConversationDTOS(JsonArray convosArray) {
         List<ConversationDTO> list = new ArrayList<>();
 
         for (JsonElement elem : convosArray) {
+
+            if (!elem.isJsonObject()) {
+                System.err.println("[API Error] Found non-object element in conversations array: " + elem);
+                continue;
+            }
+
             JsonObject convObj = elem.getAsJsonObject();
             long id = convObj.get("id").getAsLong();
 
             String name = "Unknown";
             boolean isOnline = false;
             String serverIp = null;
+            long otherUserId = -1;
 
-            if (convObj.has("name") && !convObj.get("name").isJsonNull()) {
-                name = convObj.get("name").getAsString();
-            } else if (convObj.has("other_users")) {
+            if (convObj.has("other_users")) {
                 JsonArray otherUsers = convObj.getAsJsonArray("other_users");
                 if (!otherUsers.isEmpty()) {
                     JsonObject otherUser = otherUsers.get(0).getAsJsonObject();
+
+                    if (otherUser.has("id") && !otherUser.get("id").isJsonNull()) {
+                        otherUserId = otherUser.get("id").getAsLong(); // neu
+                    }
 
                     if (otherUser.has("username") && !otherUser.get("username").isJsonNull()) {
                         name = otherUser.get("username").getAsString();
                     }
 
-                    // Neue Status-Felder auslesen
                     if (otherUser.has("is_online") && !otherUser.get("is_online").isJsonNull()) {
                         isOnline = otherUser.get("is_online").getAsBoolean();
                     }
@@ -133,9 +170,13 @@ public class CraftShotApiClient {
                     }
                 }
             }
+            
+            // If the conversation has a specific name, it overrides the user's name
+            if (convObj.has("name") && !convObj.get("name").isJsonNull()) {
+                name = convObj.get("name").getAsString();
+            }
 
-            // Aktualisiertes DTO instanziieren
-            list.add(new ConversationDTO(id, name, isOnline, serverIp));
+            list.add(new ConversationDTO(id, otherUserId, name, isOnline, serverIp));
         }
         return list;
     }

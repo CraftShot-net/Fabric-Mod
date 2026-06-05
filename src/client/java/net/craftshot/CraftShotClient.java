@@ -1,8 +1,12 @@
 package net.craftshot;
 
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
 import com.mojang.blaze3d.platform.InputConstants;
 import net.craftshot.client.api.CraftShotApiClient;
+import net.craftshot.client.api.ReverbClient;
 import net.craftshot.client.gui.CraftShotDMScreen;
+import net.craftshot.client.gui.DmMessageToast;
 import net.craftshot.command.CraftShotCommand;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
@@ -11,7 +15,9 @@ import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keymapping.v1.KeyMappingHelper;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.minecraft.client.KeyMapping;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ServerData;
+import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import org.lwjgl.glfw.GLFW;
 
@@ -25,6 +31,7 @@ public class CraftShotClient implements ClientModInitializer {
 
     private static final KeyMapping openDmsKey = KeyMappingHelper.registerKeyMapping(new KeyMapping("key.craftshot.open_dms", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_M, CATEGORY));
     private ScheduledExecutorService heartbeatScheduler;
+    private static ReverbClient reverbClient;
 
     @Override
     public void onInitializeClient() {
@@ -32,6 +39,7 @@ public class CraftShotClient implements ClientModInitializer {
         LiveScreenshotTask.register();
 
         ClientLifecycleEvents.CLIENT_STARTED.register(_ -> {
+            connectReverbIfNeeded();
             CraftShotApiClient.sendClientHeartbeat();
 
             this.heartbeatScheduler = Executors.newSingleThreadScheduledExecutor(runnable -> {
@@ -47,7 +55,12 @@ public class CraftShotClient implements ClientModInitializer {
             if (this.heartbeatScheduler != null) {
                 this.heartbeatScheduler.shutdown();
             }
+            if (reverbClient != null) {
+                reverbClient.disconnect();
+                reverbClient = null;
+            }
 
+            Runtime.getRuntime().addShutdownHook(new Thread(CraftShotApiClient::sendClientOffline, "CraftShot-Offline"));
             CraftShotApiClient.sendClientOffline();
         });
 
@@ -56,13 +69,16 @@ public class CraftShotClient implements ClientModInitializer {
             if (currentServer != null) {
                 CraftShotApiClient.sendServerJoin(currentServer.ip);
             }
+            connectReverbIfNeeded();
         });
 
         ClientPlayConnectionEvents.DISCONNECT.register((_, client) -> {
             ServerData currentServer = client.getCurrentServer();
             String serverIp = (currentServer != null) ? currentServer.ip : null;
-
             CraftShotApiClient.sendServerLeave(serverIp);
+
+            CraftShotApiClient.clearCache();
+            CraftShotDMScreen.clearInstance();
         });
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
@@ -72,6 +88,68 @@ public class CraftShotClient implements ClientModInitializer {
                 }
             }
         });
+    }
 
+    private static void connectReverbIfNeeded() {
+        if (reverbClient != null) return;
+
+        if (CraftShotApiClient.myDatabaseId != -1) {
+            connectReverb();
+        } else {
+            CraftShotApiClient.fetchConversationsWithCache().thenAccept(_ ->
+                    Minecraft.getInstance().execute(CraftShotClient::connectReverb));
+        }
+    }
+
+    private static void connectReverb() {
+        if (reverbClient == null && CraftShotApiClient.myDatabaseId != -1) {
+            reverbClient = new ReverbClient(
+                    String.valueOf(CraftShotApiClient.myDatabaseId),
+                    new ReverbClient.MessageListener() {
+                        public void onNewMessage(JsonObject data) {
+                            handleIncomingMessage(data);
+                        }
+                        public void onPresenceUpdate(JsonObject data) {
+                            long userId = data.get("user_id").getAsLong();
+                            boolean isOnline = data.get("is_online").getAsBoolean();
+                            String server = data.has("current_server") && !data.get("current_server").isJsonNull()
+                                    ? data.get("current_server").getAsString() : null;
+
+                            Minecraft.getInstance().execute(() ->
+                                    CraftShotDMScreen.getInstance().handlePresenceUpdate(userId, isOnline, server)
+                            );
+                        }
+                    }
+            );
+            reverbClient.connect();
+        }
+    }
+
+    private static void handleIncomingMessage(JsonObject messageData) {
+        try {
+            JsonObject msgObj = messageData.has("message") ? messageData.getAsJsonObject("message") : messageData;
+            String content = msgObj.has("content") && !msgObj.get("content").isJsonNull() ? msgObj.get("content").getAsString() : "";
+            String senderName = msgObj.getAsJsonObject("sender").get("username").getAsString();
+
+            String attachmentUrl = null;
+            if (msgObj.has("attachments") && !msgObj.get("attachments").isJsonNull()) {
+                JsonArray attachments = msgObj.getAsJsonArray("attachments");
+                if (!attachments.isEmpty()) {
+                    String path = attachments.get(0).getAsString();
+                    attachmentUrl = path.startsWith("http") ? path : "https://craftshot.net/storage/" + path;
+                }
+            }
+
+            boolean dmScreenOpen = Minecraft.getInstance().screen instanceof CraftShotDMScreen;
+
+            CraftShotDMScreen.getInstance().handleIncomingLiveMessage(messageData, dmScreenOpen);
+
+            if (!dmScreenOpen) {
+                String toastText = !content.isEmpty() ? content : attachmentUrl != null ? Component.translatable("craftshot.dm.notification.image").getString() : "…";
+                DmMessageToast.show(senderName, toastText, CraftShotDMScreen.getSkinAsyncPublic(senderName));
+            }
+        } catch (Exception e) {
+            System.err.println("JSON Parse Error on incoming live message: " + e.getMessage());
+        }
     }
 }

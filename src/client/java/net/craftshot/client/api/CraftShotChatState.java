@@ -2,9 +2,12 @@ package net.craftshot.client.api;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
+import net.craftshot.client.gui.CraftShotDMScreen;
+import net.craftshot.client.gui.CraftShotToast;
 import net.minecraft.client.Minecraft;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 
 public class CraftShotChatState {
@@ -132,6 +135,37 @@ public class CraftShotChatState {
                 System.err.println(e.getMessage());
             }
         });
+    }
+
+    public static void handlePresenceUpdate(long userId, boolean isOnline, String serverIp) {
+        Conversation target = null;
+        for (Conversation conv : CONVERSATIONS) {
+            if (conv.otherUserId == userId) {
+                target = conv;
+                break;
+            }
+        }
+
+        if (target != null) {
+            boolean wasOnline = target.isOnline;
+            String oldServer = target.serverIp;
+
+            if (wasOnline == isOnline && (Objects.equals(serverIp, oldServer))) {
+                return;
+            }
+
+            target.isOnline = isOnline;
+            target.serverIp = serverIp;
+            isDirty = true;
+
+            if (!wasOnline && isOnline) {
+                CraftShotToast.show(target.name, "Online", CraftShotDMScreen.getSkinAsyncPublic(target.name));
+            } else if (wasOnline && !isOnline) {
+                CraftShotToast.show(target.name, "Offline", CraftShotDMScreen.getSkinAsyncPublic(target.name));
+            } else if (isOnline && serverIp != null) {
+                CraftShotToast.show(target.name, "🎮 " + serverIp, CraftShotDMScreen.getSkinAsyncPublic(target.name));
+            }
+        }
     }
 
     public static int getTotalUnread() {

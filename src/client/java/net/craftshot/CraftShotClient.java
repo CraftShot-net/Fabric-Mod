@@ -121,24 +121,7 @@ public class CraftShotClient implements ClientModInitializer {
                                     ? data.get("current_server").getAsString() : null;
 
                             Minecraft.getInstance().execute(() -> {
-                                CraftShotDMScreen instance = CraftShotDMScreen.getInstance();
-
-                                String username = instance.getUsernameByOtherUserId(userId);
-                                boolean wasOnline = instance.isUserOnline(userId);
-                                String oldServer = instance.getServerByOtherUserId(userId);
-
-                                instance.handlePresenceUpdate(userId, isOnline, server);
-                                CraftShotChatState.isDirty = true;
-
-                                if (username == null) return;
-
-                                if (!wasOnline && isOnline) {
-                                    CraftShotToast.show(username, "Online", CraftShotDMScreen.getSkinAsyncPublic(username));
-                                } else if (wasOnline && !isOnline) {
-                                    CraftShotToast.show(username, "Offline", CraftShotDMScreen.getSkinAsyncPublic(username));
-                                } else if (isOnline && server != null && !server.equals(oldServer)) {
-                                    CraftShotToast.show(username, "🎮 " + server, CraftShotDMScreen.getSkinAsyncPublic(username));
-                                }
+                                CraftShotChatState.handlePresenceUpdate(userId, isOnline, server);
                             });
                         }
                     }

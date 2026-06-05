@@ -4,6 +4,7 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.mojang.blaze3d.platform.InputConstants;
 import net.craftshot.client.api.CraftShotApiClient;
+import net.craftshot.client.api.CraftShotChatState;
 import net.craftshot.client.api.ReverbClient;
 import net.craftshot.client.gui.CraftShotDMScreen;
 import net.craftshot.client.gui.CraftShotToast;
@@ -79,6 +80,8 @@ public class CraftShotClient implements ClientModInitializer {
 
             CraftShotApiClient.clearCache();
             CraftShotDMScreen.clearInstance();
+            CraftShotChatState.CONVERSATIONS.clear();
+            CraftShotChatState.isDataLoaded = false;
         });
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
@@ -123,6 +126,7 @@ public class CraftShotClient implements ClientModInitializer {
                                 String oldServer = instance.getServerByOtherUserId(userId);
 
                                 instance.handlePresenceUpdate(userId, isOnline, server);
+                                CraftShotChatState.isDirty = true;
 
                                 if (username == null) return;
 
@@ -156,16 +160,16 @@ public class CraftShotClient implements ClientModInitializer {
                 }
             }
 
-            boolean dmScreenOpen = Minecraft.getInstance().screen instanceof CraftShotDMScreen;
+            CraftShotChatState.handleLiveMessage(messageData);
 
-            CraftShotDMScreen.getInstance().handleIncomingLiveMessage(messageData, dmScreenOpen);
+            boolean dmScreenOpen = Minecraft.getInstance().screen instanceof CraftShotDMScreen;
 
             if (!dmScreenOpen) {
                 String toastText = !content.isEmpty() ? content : attachmentUrl != null ? Component.translatable("craftshot.dm.notification.image").getString() : "…";
                 CraftShotToast.show(senderName, toastText, CraftShotDMScreen.getSkinAsyncPublic(senderName));
             }
         } catch (Exception e) {
-            System.err.println("JSON Parse Error on incoming live message: " + e.getMessage());
+            System.err.println(e.getMessage());
         }
     }
 }

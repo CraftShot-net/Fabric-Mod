@@ -12,10 +12,12 @@ import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.client.renderer.texture.DynamicTexture;
+import net.minecraft.client.resources.sounds.SimpleSoundInstance;
 import net.minecraft.network.chat.Component;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.resources.Identifier;
+import net.minecraft.sounds.SoundEvents;
 import net.minecraft.world.entity.player.PlayerSkin;
 import org.jspecify.annotations.NonNull;
 import org.lwjgl.glfw.GLFW;
@@ -50,6 +52,7 @@ public class CraftShotDMScreen extends Screen {
 
     private EditBox messageField;
     private int activeConvIndex = 0;
+    private long currentActiveId = -1;
     private int sidebarScrollY = 0;
     private int chatScrollY = 0;
 
@@ -87,7 +90,9 @@ public class CraftShotDMScreen extends Screen {
         if (!CraftShotChatState.CONVERSATIONS.isEmpty()) {
             activeConvIndex = Math.min(activeConvIndex, CraftShotChatState.CONVERSATIONS.size() - 1);
             CraftShotChatState.Conversation active = CraftShotChatState.CONVERSATIONS.get(activeConvIndex);
+            currentActiveId = active.id;
             CraftShotApiClient.markConversationAsRead(active.id);
+            CraftShotChatState.resetUnread(active.id);
             CraftShotChatState.ensureMessagesLoaded(active);
         }
     }
@@ -95,6 +100,10 @@ public class CraftShotDMScreen extends Screen {
     @Override
     public void onClose() {
         super.onClose();
+    }
+
+    public long getActiveConversationId() {
+        return currentActiveId;
     }
 
     public String getUsernameByOtherUserId(long userId) {
@@ -138,6 +147,8 @@ public class CraftShotDMScreen extends Screen {
         this.messageField.setValue("");
         chatScrollY = 0;
 
+        Minecraft.getInstance().getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.ITEM_PICKUP, 1.5F));
+
         String myUsername = Minecraft.getInstance().getUser().getName();
         CraftShotChatState.ChatMessage optimistic = new CraftShotChatState.ChatMessage(myUsername, text, null);
         active.messages.add(optimistic);
@@ -178,8 +189,12 @@ public class CraftShotDMScreen extends Screen {
 
             if (clickedIndex >= 0 && clickedIndex < CraftShotChatState.CONVERSATIONS.size()) {
                 activeConvIndex = clickedIndex;
+                CraftShotChatState.Conversation active = CraftShotChatState.CONVERSATIONS.get(activeConvIndex);
+                currentActiveId = active.id;
                 chatScrollY = 0;
-                CraftShotChatState.ensureMessagesLoaded(CraftShotChatState.CONVERSATIONS.get(activeConvIndex));
+                CraftShotApiClient.markConversationAsRead(active.id);
+                CraftShotChatState.resetUnread(active.id);
+                CraftShotChatState.ensureMessagesLoaded(active);
                 return true;
             }
         }
@@ -236,13 +251,24 @@ public class CraftShotDMScreen extends Screen {
     public void tick() {
         super.tick();
         if (CraftShotChatState.isDirty) {
-            if (this.messageField != null) {
-                this.messageField.setEditable(!CraftShotChatState.CONVERSATIONS.isEmpty());
-            }
             if (!CraftShotChatState.CONVERSATIONS.isEmpty()) {
+                if (currentActiveId != -1) {
+                    for (int i = 0; i < CraftShotChatState.CONVERSATIONS.size(); i++) {
+                        if (CraftShotChatState.CONVERSATIONS.get(i).id == currentActiveId) {
+                            activeConvIndex = i;
+                            break;
+                        }
+                    }
+                }
+
                 activeConvIndex = Math.min(activeConvIndex, CraftShotChatState.CONVERSATIONS.size() - 1);
                 CraftShotChatState.Conversation active = CraftShotChatState.CONVERSATIONS.get(activeConvIndex);
+                currentActiveId = active.id;
                 CraftShotChatState.ensureMessagesLoaded(active);
+            }
+
+            if (this.messageField != null) {
+                this.messageField.setEditable(!CraftShotChatState.CONVERSATIONS.isEmpty());
             }
             CraftShotChatState.isDirty = false;
         }

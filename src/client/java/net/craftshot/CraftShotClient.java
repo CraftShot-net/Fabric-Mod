@@ -18,8 +18,10 @@ import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ServerData;
+import net.minecraft.client.resources.sounds.SimpleSoundInstance;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
+import net.minecraft.sounds.SoundEvents;
 import org.lwjgl.glfw.GLFW;
 
 import java.util.concurrent.Executors;
@@ -148,6 +150,7 @@ public class CraftShotClient implements ClientModInitializer {
     private static void handleIncomingMessage(JsonObject messageData) {
         try {
             JsonObject msgObj = messageData.has("message") ? messageData.getAsJsonObject("message") : messageData;
+            long convId = msgObj.get("conversation_id").getAsLong();
             String content = msgObj.has("content") && !msgObj.get("content").isJsonNull() ? msgObj.get("content").getAsString() : "";
             String senderName = msgObj.getAsJsonObject("sender").get("username").getAsString();
 
@@ -160,13 +163,24 @@ public class CraftShotClient implements ClientModInitializer {
                 }
             }
 
-            CraftShotChatState.handleLiveMessage(messageData);
-
             boolean dmScreenOpen = Minecraft.getInstance().screen instanceof CraftShotDMScreen;
+            boolean isFocused = false;
 
-            if (!dmScreenOpen) {
+            if (dmScreenOpen) {
+                CraftShotDMScreen screen = (CraftShotDMScreen) Minecraft.getInstance().screen;
+                if (screen.getActiveConversationId() == convId) {
+                    isFocused = true;
+                    CraftShotApiClient.markConversationAsRead(convId);
+                }
+            }
+
+            CraftShotChatState.handleLiveMessage(messageData, isFocused);
+            CraftShotChatState.updateTaskbarBadge();
+
+            if (!isFocused) {
                 String toastText = !content.isEmpty() ? content : attachmentUrl != null ? Component.translatable("craftshot.dm.notification.image").getString() : "…";
                 CraftShotToast.show(senderName, toastText, CraftShotDMScreen.getSkinAsyncPublic(senderName));
+                Minecraft.getInstance().getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.NOTE_BLOCK_PLING, 2.0F));
             }
         } catch (Exception e) {
             System.err.println(e.getMessage());

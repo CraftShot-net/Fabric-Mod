@@ -5,6 +5,7 @@ import com.google.gson.JsonObject;
 import net.minecraft.client.Minecraft;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
 public class CraftShotChatState {
 
@@ -23,6 +24,35 @@ public class CraftShotChatState {
                 isDirty = true;
             }));
         }
+    }
+
+    public static void resetUnread(long convId) {
+        Conversation c = findById(convId);
+        if (c != null && c.unreadCount > 0) {
+            c.unreadCount = 0;
+            updateTaskbarBadge();
+        }
+    }
+
+    public static void updateTaskbarBadge() {
+        int totalUnread = 0;
+        for (Conversation c : CONVERSATIONS) {
+            totalUnread += c.unreadCount;
+        }
+
+        final int finalCount = totalUnread;
+
+        CompletableFuture.runAsync(() -> {
+            try {
+                if (java.awt.Taskbar.isTaskbarSupported()) {
+                    java.awt.Taskbar taskbar = java.awt.Taskbar.getTaskbar();
+                    if (taskbar.isSupported(java.awt.Taskbar.Feature.ICON_BADGE_TEXT)) {
+                        taskbar.setIconBadge(finalCount > 0 ? String.valueOf(finalCount) : null);
+                    }
+                }
+            } catch (Throwable t) {
+            }
+        });
     }
 
     public static void ensureMessagesLoaded(Conversation conversation) {
@@ -49,7 +79,7 @@ public class CraftShotChatState {
         }));
     }
 
-    public static void handleLiveMessage(JsonObject messageData) {
+    public static void handleLiveMessage(JsonObject messageData, boolean isFocused) {
         Minecraft.getInstance().execute(() -> {
             try {
                 JsonObject msgObj = messageData.has("message") ? messageData.getAsJsonObject("message") : messageData;
@@ -78,6 +108,7 @@ public class CraftShotChatState {
 
                     if (!isDuplicate) {
                         target.messages.add(liveMsg);
+                        if (!isFocused) target.unreadCount++;
                         CONVERSATIONS.remove(target);
                         CONVERSATIONS.addFirst(target);
                         isDirty = true;
@@ -92,6 +123,7 @@ public class CraftShotChatState {
                         Conversation reFetchedTarget = findById(convId);
                         if (reFetchedTarget != null) {
                             reFetchedTarget.messages.add(liveMsg);
+                            if (!isFocused) reFetchedTarget.unreadCount++;
                         }
                         isDirty = true;
                     }));
@@ -100,6 +132,14 @@ public class CraftShotChatState {
                 System.err.println(e.getMessage());
             }
         });
+    }
+
+    public static int getTotalUnread() {
+        int total = 0;
+        for (Conversation c : CONVERSATIONS) {
+            total += c.unreadCount;
+        }
+        return total;
     }
 
     public static Conversation findById(long id) {
@@ -117,6 +157,7 @@ public class CraftShotChatState {
         public String serverIp;
         public List<ChatMessage> messages = new ArrayList<>();
         public boolean messagesLoaded = false;
+        public int unreadCount = 0;
 
         public Conversation(long id, long otherUserId, String name, boolean isOnline, String serverIp) {
             this.id = id;

@@ -4,7 +4,8 @@
   "compatibilityLevel": "JAVA_21",
   "mixins": [
     "client.ScreenshotMixin",
-    "client.TitleScreenUpdateMixin"
+    "client.TitleScreenUpdateMixin",
+    "client.PauseScreenMixin"
   ],
   "injectors": {
     "defaultRequire": 1

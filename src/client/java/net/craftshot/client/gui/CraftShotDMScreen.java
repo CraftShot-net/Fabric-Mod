@@ -161,9 +161,21 @@ public class CraftShotDMScreen extends Screen {
     }
 
     private void applyMessages(Conversation conversation, List<CraftShotApiClient.MessageDTO> fetchedMessages) {
+        List<ChatMessage> liveMessages = new ArrayList<>(conversation.messages);
+
         conversation.messages.clear();
         for (var dto : fetchedMessages) {
             conversation.messages.add(new ChatMessage(dto.sender(), dto.content(), dto.attachmentUrl()));
+        }
+
+        for (ChatMessage live : liveMessages) {
+            boolean alreadyIn = conversation.messages.stream()
+                    .anyMatch(m -> m.sender != null
+                            && m.sender.equals(live.sender)
+                            && m.content.equals(live.content));
+            if (!alreadyIn) {
+                conversation.messages.add(live);
+            }
         }
     }
 

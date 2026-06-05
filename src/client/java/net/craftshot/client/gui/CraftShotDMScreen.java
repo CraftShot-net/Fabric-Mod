@@ -182,14 +182,16 @@ public class CraftShotDMScreen extends Screen {
     }
 
     private void applyMessages(Conversation conversation, List<CraftShotApiClient.MessageDTO> fetchedMessages) {
-        List<ChatMessage> liveMessages = new ArrayList<>(conversation.messages);
+        List<ChatMessage> pendingLive = conversation.messages.stream()
+                .filter(m -> m.liveOnly)
+                .toList();
 
         conversation.messages.clear();
         for (var dto : fetchedMessages) {
             conversation.messages.add(new ChatMessage(dto.sender(), dto.content(), dto.attachmentUrl()));
         }
 
-        for (ChatMessage live : liveMessages) {
+        for (ChatMessage live : pendingLive) {
             boolean alreadyIn = conversation.messages.stream()
                     .anyMatch(m -> m.sender != null
                             && m.sender.equals(live.sender)
@@ -217,41 +219,60 @@ public class CraftShotDMScreen extends Screen {
                 }
             }
 
+            ChatMessage liveMsg = new ChatMessage(senderName, content, attachmentUrl);
+            liveMsg.liveOnly = true;
+
             Conversation targetConv = findConversationById(convId);
 
             if (targetConv != null) {
-                if (!targetConv.messages.isEmpty()) {
-                    ChatMessage lastMsg = targetConv.messages.getLast();
-                    if (lastMsg.sender != null && lastMsg.sender.equals(senderName) && lastMsg.content.equals(content)) return;
-                }
-
-                targetConv.messages.add(new ChatMessage(senderName, content, attachmentUrl));
-
-                if (isScreenOpen && conversations.indexOf(targetConv) == activeConvIndex) {
-                    CraftShotApiClient.markConversationAsRead(targetConv.id);
-                }
-
-                conversations.remove(targetConv);
-                conversations.addFirst(targetConv);
-
-                if (conversations.get(activeConvIndex) == targetConv) {
-                    activeConvIndex = 0;
-                    chatScrollY = 0;
-                } else {
-                    long activeId = conversations.get(activeConvIndex).id;
-                    activeConvIndex = Math.max(0, indexOfConversationById(activeId));
-                }
+                applyLiveMessageToConversation(targetConv, liveMsg, isScreenOpen);
             } else {
                 CraftShotApiClient.fetchConversationsFresh().thenAccept(fetchedConvos -> Minecraft.getInstance().execute(() -> {
+                    Conversation asyncConv = null;
+
                     for (var dto : fetchedConvos) {
-                        if (findConversationById(dto.id()) == null) {
-                            conversations.addFirst(new Conversation(dto.id(), dto.otherUserId(), dto.name(), dto.isOnline(), dto.serverIp()));
+                        Conversation existing = findConversationById(dto.id());
+                        if (existing == null) {
+                            existing = new Conversation(dto.id(), dto.otherUserId(), dto.name(), dto.isOnline(), dto.serverIp());
+                            conversations.addFirst(existing);
                         }
+
+                        if (existing.id == convId) {
+                            asyncConv = existing;
+                        }
+                    }
+
+                    if (asyncConv != null) {
+                        applyLiveMessageToConversation(asyncConv, liveMsg, isScreenOpen);
                     }
                 }));
             }
         } catch (Exception e) {
             System.err.println("JSON Parse Error on incoming live message UI update: " + e.getMessage());
+        }
+    }
+
+    private void applyLiveMessageToConversation(Conversation targetConv, ChatMessage liveMsg, boolean isScreenOpen) {
+        if (!targetConv.messages.isEmpty()) {
+            ChatMessage lastMsg = targetConv.messages.getLast();
+            if (lastMsg.sender != null && lastMsg.sender.equals(liveMsg.sender) && lastMsg.content.equals(liveMsg.content)) return;
+        }
+
+        targetConv.messages.add(liveMsg);
+
+        if (isScreenOpen && conversations.indexOf(targetConv) == activeConvIndex) {
+            CraftShotApiClient.markConversationAsRead(targetConv.id);
+        }
+
+        conversations.remove(targetConv);
+        conversations.addFirst(targetConv);
+
+        if (conversations.get(activeConvIndex) == targetConv) {
+            activeConvIndex = 0;
+            chatScrollY = 0;
+        } else {
+            long activeId = conversations.get(activeConvIndex).id;
+            activeConvIndex = Math.max(0, indexOfConversationById(activeId));
         }
     }
 
@@ -647,6 +668,7 @@ public class CraftShotDMScreen extends Screen {
         String attachmentUrl;
         Supplier<PlayerSkin> skinSupplier;
         boolean failed;
+        boolean liveOnly = false;
 
         public ChatMessage(String sender, String content, String attachmentUrl) {
             this(sender, content, attachmentUrl, false);

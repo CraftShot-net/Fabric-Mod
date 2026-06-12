@@ -80,10 +80,13 @@ public class CraftShotClient implements ClientModInitializer {
             String serverIp = (currentServer != null) ? currentServer.ip : null;
             CraftShotApiClient.sendServerLeave(serverIp);
 
-            CraftShotApiClient.clearCache();
-            CraftShotDMScreen.clearInstance();
-            CraftShotChatState.CONVERSATIONS.clear();
-            CraftShotChatState.isDataLoaded = false;
+            //only clear when we actually left a server ant not switch from main menu to server
+            if (serverIp != null) {
+                CraftShotApiClient.clearCache();
+                CraftShotDMScreen.clearInstance();
+                CraftShotChatState.CONVERSATIONS.clear();
+                CraftShotChatState.isDataLoaded = false;
+            }
         });
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {

@@ -106,37 +106,6 @@ public class CraftShotDMScreen extends Screen {
         return currentActiveId;
     }
 
-    public String getUsernameByOtherUserId(long userId) {
-        for (CraftShotChatState.Conversation conv : CraftShotChatState.CONVERSATIONS) {
-            if (conv.otherUserId == userId) return conv.name;
-        }
-        return null;
-    }
-
-    public boolean isUserOnline(long userId) {
-        for (CraftShotChatState.Conversation conv : CraftShotChatState.CONVERSATIONS) {
-            if (conv.otherUserId == userId) return conv.isOnline;
-        }
-        return false;
-    }
-
-    public String getServerByOtherUserId(long userId) {
-        for (CraftShotChatState.Conversation conv : CraftShotChatState.CONVERSATIONS) {
-            if (conv.otherUserId == userId) return conv.serverIp;
-        }
-        return null;
-    }
-
-    public void handlePresenceUpdate(long userId, boolean isOnline, String serverIp) {
-        for (CraftShotChatState.Conversation conv : CraftShotChatState.CONVERSATIONS) {
-            if (conv.otherUserId == userId) {
-                conv.isOnline = isOnline;
-                conv.serverIp = serverIp;
-                break;
-            }
-        }
-    }
-
     private void sendMessage() {
         String text = this.messageField.getValue().trim();
         if (text.isEmpty() || CraftShotChatState.CONVERSATIONS.isEmpty()) return;

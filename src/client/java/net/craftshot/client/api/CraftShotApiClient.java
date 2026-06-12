@@ -25,7 +25,6 @@ public class CraftShotApiClient {
     private static final String BASE_URL = "https://craftshot.net/api/v2/messages";
     private static final String UUID_BASE_URL = "https://craftshot.net/api/minecraft-uuid/";
     private static final long CONVERSATION_CACHE_TTL_MS = 60_000;
-    private static final long MESSAGE_CACHE_TTL_MS = 60_000;
     private static final HttpClient CLIENT = createHttpClient();
     private static final Gson GSON = new Gson();
     private static final Map<Long, CachedMessages> MESSAGE_CACHE = new ConcurrentHashMap<>();
@@ -179,17 +178,6 @@ public class CraftShotApiClient {
             list.add(new ConversationDTO(id, otherUserId, name, isOnline, serverIp));
         }
         return list;
-    }
-
-    public static CompletableFuture<MessageFetchResult> fetchMessagesWithCache(long conversationId) {
-        CachedMessages cached = MESSAGE_CACHE.get(conversationId);
-        long now = System.currentTimeMillis();
-
-        if (cached != null && (now - cached.cachedAtMillis) <= MESSAGE_CACHE_TTL_MS) {
-            return CompletableFuture.completedFuture(new MessageFetchResult(List.copyOf(cached.messages), true));
-        }
-
-        return fetchMessagesFresh(conversationId).thenApply(messages -> new MessageFetchResult(messages, false));
     }
 
     public static CompletableFuture<List<MessageDTO>> fetchMessagesFresh(long conversationId) {

@@ -5,6 +5,7 @@ import com.google.gson.JsonObject;
 import net.craftshot.client.gui.CraftShotDMScreen;
 import net.craftshot.client.gui.CraftShotToast;
 import net.minecraft.client.Minecraft;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -53,31 +54,32 @@ public class CraftShotChatState {
                         taskbar.setIconBadge(finalCount > 0 ? String.valueOf(finalCount) : null);
                     }
                 }
-            } catch (Throwable t) {
+            } catch (Throwable _) {
             }
         });
     }
 
     public static void ensureMessagesLoaded(Conversation conversation) {
-        if (conversation.messagesLoaded) return;
+        if (conversation.messagesLoaded || conversation.messagesLoading) return;
+        conversation.messagesLoading = true;
 
-        CraftShotApiClient.fetchMessagesWithCache(conversation.id).thenAccept(result -> Minecraft.getInstance().execute(() -> {
+        CraftShotApiClient.fetchMessagesFresh(conversation.id).thenAccept(messages -> Minecraft.getInstance().execute(() -> {
             List<ChatMessage> pendingLive = conversation.messages.stream().filter(m -> m.liveOnly).toList();
 
             conversation.messages.clear();
-            for (var dto : result.messages()) {
+            for (var dto : messages) {
                 conversation.messages.add(new ChatMessage(dto.sender(), dto.content(), dto.attachmentUrl()));
             }
 
             for (ChatMessage live : pendingLive) {
-                boolean alreadyIn = conversation.messages.stream()
-                        .anyMatch(m -> m.sender != null && m.sender.equals(live.sender) && m.content.equals(live.content));
+                boolean alreadyIn = conversation.messages.stream().anyMatch(m -> m.sender != null && m.sender.equals(live.sender) && m.content.equals(live.content));
                 if (!alreadyIn) {
                     conversation.messages.add(live);
                 }
             }
 
             conversation.messagesLoaded = true;
+            conversation.messagesLoading = false;
             isDirty = true;
         }));
     }
@@ -104,10 +106,7 @@ public class CraftShotChatState {
 
                 Conversation target = findById(convId);
                 if (target != null) {
-                    boolean isDuplicate = !target.messages.isEmpty()
-                            && target.messages.getLast().sender != null
-                            && target.messages.getLast().sender.equals(liveMsg.sender)
-                            && target.messages.getLast().content.equals(liveMsg.content);
+                    boolean isDuplicate = !target.messages.isEmpty() && target.messages.getLast().sender != null && target.messages.getLast().sender.equals(liveMsg.sender) && target.messages.getLast().content.equals(liveMsg.content);
 
                     if (!isDuplicate) {
                         target.messages.add(liveMsg);
@@ -191,6 +190,7 @@ public class CraftShotChatState {
         public String serverIp;
         public List<ChatMessage> messages = new ArrayList<>();
         public boolean messagesLoaded = false;
+        public boolean messagesLoading = false;
         public int unreadCount = 0;
 
         public Conversation(long id, long otherUserId, String name, boolean isOnline, String serverIp) {

@@ -91,8 +91,8 @@ public class CraftShotClient implements ClientModInitializer {
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             while (openDmsKey.consumeClick()) {
-                if (client.screen == null) {
-                    client.setScreen(CraftShotDMScreen.getInstance());
+                if (client.gui.screen() == null) {
+                    client.gui.setScreen(CraftShotDMScreen.getInstance());
                 }
             }
         });
@@ -149,11 +149,11 @@ public class CraftShotClient implements ClientModInitializer {
                 }
             }
 
-            boolean dmScreenOpen = Minecraft.getInstance().screen instanceof CraftShotDMScreen;
+            boolean dmScreenOpen = Minecraft.getInstance().gui.screen() instanceof CraftShotDMScreen;
             boolean isFocused = false;
 
             if (dmScreenOpen) {
-                CraftShotDMScreen screen = (CraftShotDMScreen) Minecraft.getInstance().screen;
+                CraftShotDMScreen screen = (CraftShotDMScreen) Minecraft.getInstance().gui.screen();
                 if (screen.getActiveConversationId() == convId) {
                     isFocused = true;
                     CraftShotApiClient.markConversationAsRead(convId);

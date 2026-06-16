@@ -28,7 +28,7 @@ public class CraftShotToast implements Toast {
     }
 
     public static void show(String senderName, String messageExcerpt, Supplier<PlayerSkin> skinSupplier) {
-        Minecraft.getInstance().getToastManager().addToast(
+        Minecraft.getInstance().gui.toastManager().addToast(
                 new CraftShotToast(senderName, messageExcerpt, skinSupplier)
         );
     }

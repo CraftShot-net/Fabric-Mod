@@ -23,7 +23,7 @@ public class PauseScreenMixin extends Screen {
     @Inject(method = "init", at = @At("RETURN"))
     private void addCraftShotButton(CallbackInfo ci) {
         this.addRenderableWidget(Button.builder(Component.literal("DMs"), button -> {
-            Minecraft.getInstance().setScreen(CraftShotDMScreen.getInstance());
+            Minecraft.getInstance().gui.setScreen(CraftShotDMScreen.getInstance());
         }).bounds(10, this.height - 30, 50, 20).build());
     }
 

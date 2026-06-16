@@ -39,7 +39,7 @@ public class LiveScreenshotTask {
             if (!enabled) return;
             if (client.level == null) return;
             if (client.player == null) return;
-            if (client.screen instanceof PauseScreen) return;
+            if (client.gui.screen() instanceof PauseScreen) return;
             if (capturing) return;
 
             tickCounter++;
@@ -48,7 +48,7 @@ public class LiveScreenshotTask {
                 capturing = true;
                 File liveFile = new File(client.gameDirectory, "screenshots/live.png");
 
-                RenderTarget rt = client.getMainRenderTarget();
+                RenderTarget rt = client.gameRenderer.mainRenderTarget();
                 int factor = (rt.width % 2 == 0 && rt.height % 2 == 0) ? 2 : 1;
 
                 Screenshot.grab(client.gameDirectory, "live.png", rt, factor, _ -> {

@@ -16,13 +16,6 @@
   "craftshot.update.available": "CraftShot %s verfügbar!",
   "craftshot.update.download": "Klicken zum Herunterladen",
 
-  "craftshot.live.enabled": "Live-Screenshot alle 10 Sekunden aktiviert. Wird als screenshots/live.png gespeichert.",
-  "craftshot.live.disabled": "Live-Screenshot deaktiviert.",
-  "craftshot.live.openInBrowser": "Im Browser öffnen",
-  "craftshot.live.copyButton": " [Kopieren]",
-  "craftshot.live.copyToClipboard": "URL in die Zwischenablage kopieren",
-  "craftshot.live.urlLabel": "Live-URL: ",
-
   "craftshot.dm.title": "CraftShot-Nachrichten",
   "craftshot.dm.messagePlaceholder": "Nachricht...",
   "craftshot.dm.send": "Senden",

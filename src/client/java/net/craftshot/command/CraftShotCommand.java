@@ -7,7 +7,6 @@ import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.builder.RequiredArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
-import net.craftshot.LiveScreenshotTask;
 import net.craftshot.client.gui.CraftShotToast;
 import net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource;
 import net.minecraft.ChatFormatting;
@@ -38,8 +37,6 @@ public class CraftShotCommand {
                 // Literals first — must come before greedyString to avoid being swallowed
                 // Sub-Command: /craftshot copy <url>
                 .then(LiteralArgumentBuilder.<FabricClientCommandSource>literal("copy").then(RequiredArgumentBuilder.<FabricClientCommandSource, String>argument("url", StringArgumentType.greedyString()).executes(CraftShotCommand::executeCopy)))
-                // Sub-Command: /craftshot live
-                .then(LiteralArgumentBuilder.<FabricClientCommandSource>literal("live").executes(CraftShotCommand::executeLiveToggle))
                 // Hidden: /craftshot testNotification <username>
                 .then(LiteralArgumentBuilder.<FabricClientCommandSource>literal("testNotification")
                         .then(RequiredArgumentBuilder.<FabricClientCommandSource, String>argument("username", StringArgumentType.word())
@@ -77,38 +74,6 @@ public class CraftShotCommand {
             source.sendFeedback(getPrefix().append(Component.translatable("craftshot.command.failed").withStyle(ChatFormatting.RED)));
         }
 
-        return 1;
-    }
-
-    private static int executeLiveToggle(CommandContext<FabricClientCommandSource> context) {
-        boolean nowEnabled = !LiveScreenshotTask.isEnabled();
-        LiveScreenshotTask.setEnabled(nowEnabled);
-        FabricClientCommandSource source = context.getSource();
-
-        if (nowEnabled) {
-            String username = Minecraft.getInstance().getUser().getName();
-            String url = "https://craftshot.net/live/" + username;
-
-            MutableComponent link = Component.literal(url)
-                    .withStyle(style -> style
-                            .withColor(ChatFormatting.AQUA)
-                            .withUnderlined(true)
-                            .withClickEvent(new ClickEvent.OpenUrl(URI.create(url)))
-                            .withHoverEvent(new HoverEvent.ShowText(Component.translatable("craftshot.live.openInBrowser"))));
-
-            MutableComponent copyBtn = Component.translatable("craftshot.live.copyButton")
-                    .withStyle(style -> style
-                            .withColor(ChatFormatting.GOLD)
-                            .withClickEvent(new ClickEvent.CopyToClipboard(url))
-                            .withHoverEvent(new HoverEvent.ShowText(Component.translatable("craftshot.live.copyToClipboard"))));
-
-            source.sendFeedback(getPrefix()
-                    .append(Component.translatable("craftshot.live.enabled").withStyle(ChatFormatting.GREEN)));
-            source.sendFeedback(getPrefix()
-                    .append(Component.translatable("craftshot.live.urlLabel")).append(link).append(copyBtn));
-        } else {
-            source.sendFeedback(getPrefix().append(Component.translatable("craftshot.live.disabled").withStyle(ChatFormatting.RED)));
-        }
         return 1;
     }
 

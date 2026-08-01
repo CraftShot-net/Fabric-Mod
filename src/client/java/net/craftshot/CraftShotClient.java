@@ -39,7 +39,6 @@ public class CraftShotClient implements ClientModInitializer {
     @Override
     public void onInitializeClient() {
         ClientCommandRegistrationCallback.EVENT.register((dispatcher, _) -> CraftShotCommand.register(dispatcher));
-        LiveScreenshotTask.register();
 
         ClientLifecycleEvents.CLIENT_STARTED.register(_ -> {
             connectReverbIfNeeded();

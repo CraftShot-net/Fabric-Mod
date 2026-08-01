@@ -16,13 +16,6 @@
   "craftshot.update.available": "CraftShot %s available!",
   "craftshot.update.download": "Click to download",
 
-  "craftshot.live.enabled": "Live screenshot every second enabled. Saves to screenshots/live.png",
-  "craftshot.live.disabled": "Live screenshot disabled.",
-  "craftshot.live.openInBrowser": "Open in browser",
-  "craftshot.live.copyButton": " [Copy]",
-  "craftshot.live.copyToClipboard": "Copy URL to clipboard",
-  "craftshot.live.urlLabel": "Live URL: ",
-
   "craftshot.dm.title": "CraftShot Messages",
   "craftshot.dm.messagePlaceholder": "Message...",
   "craftshot.dm.send": "Send",

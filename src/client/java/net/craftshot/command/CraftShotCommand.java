@@ -17,6 +17,9 @@ import net.minecraft.network.chat.HoverEvent;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.util.Util;
 
+import net.craftshot.client.api.CraftShotApiClient;
+import net.craftshot.client.gui.CraftShotDMScreen;
+
 import java.io.File;
 import java.io.IOException;
 import java.net.URI;
@@ -26,6 +29,7 @@ import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 
 public class CraftShotCommand {
 
@@ -63,23 +67,25 @@ public class CraftShotCommand {
 
         source.sendFeedback(getPrefix().append(Component.translatable("craftshot.command.uploading").withStyle(ChatFormatting.GRAY)));
 
-        String serverIp = "Singleplayer";
-        if (Minecraft.getInstance().getCurrentServer() != null) {
-            serverIp = Minecraft.getInstance().getCurrentServer().ip;
-        }
+        final String finalServerIp = (Minecraft.getInstance().getCurrentServer() != null) 
+            ? Minecraft.getInstance().getCurrentServer().ip 
+            : "Singleplayer";
 
-        try {
-            uploadFile(uploadFile, accessToken, serverIp, source);
-        } catch (IOException e) {
-            source.sendFeedback(getPrefix().append(Component.translatable("craftshot.command.failed").withStyle(ChatFormatting.RED)));
-        }
+        CompletableFuture.runAsync(() -> {
+            String token = CraftShotApiClient.getSessionToken();
+            try {
+                uploadFile(uploadFile, token, finalServerIp, source);
+            } catch (IOException e) {
+                source.sendFeedback(getPrefix().append(Component.translatable("craftshot.command.failed").withStyle(ChatFormatting.RED)));
+            }
+        });
 
         return 1;
     }
 
     private static int executeTestNotification(CommandContext<FabricClientCommandSource> context) {
         String username = StringArgumentType.getString(context, "username");
-        CraftShotToast.show(username, "This is a test notification!", net.craftshot.client.gui.CraftShotDMScreen.getSkinAsyncPublic(username));
+        CraftShotToast.show(username, "This is a test notification!", CraftShotDMScreen.getSkinAsyncPublic(username));
         return 1;
     }
 

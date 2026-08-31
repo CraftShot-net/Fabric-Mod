@@ -49,8 +49,55 @@ public class CraftShotApiClient {
         return builder.build();
     }
 
-    private static String getSessionToken() {
-        return Minecraft.getInstance().getUser().getAccessToken();
+    private static String apiTokenCache = null;
+
+    public static synchronized String getSessionToken() {
+        if (apiTokenCache != null) {
+            return apiTokenCache;
+        }
+
+        String minecraftToken = Minecraft.getInstance().getUser().getAccessToken();
+        String username = Minecraft.getInstance().getUser().getName();
+        String uuid = Minecraft.getInstance().getUser().getProfileId().toString().replace("-", "");
+        String serverId = UUID.randomUUID().toString().replace("-", "");
+
+        try {
+            // 1. Join Mojang Session Server
+            String mojangPayload = "{\"accessToken\":\"" + minecraftToken + "\",\"selectedProfile\":\"" + uuid + "\",\"serverId\":\"" + serverId + "\"}";
+            HttpRequest mojangRequest = HttpRequest.newBuilder()
+                    .uri(URI.create("https://sessionserver.mojang.com/session/minecraft/join"))
+                    .header("Content-Type", "application/json")
+                    .POST(HttpRequest.BodyPublishers.ofString(mojangPayload))
+                    .build();
+            HttpResponse<String> mojangResponse = CLIENT.send(mojangRequest, HttpResponse.BodyHandlers.ofString());
+
+            if (mojangResponse.statusCode() != 204) {
+                System.err.println("Failed to join Mojang for API Auth: " + mojangResponse.statusCode());
+                return minecraftToken; // Fallback
+            }
+
+            // 2. Login to API
+            String apiPayload = "{\"username\":\"" + username + "\",\"server_id\":\"" + serverId + "\"}";
+            HttpRequest apiRequest = HttpRequest.newBuilder()
+                    .uri(URI.create("https://craftshot.net/v2/auth/login"))
+                    .header("Content-Type", "application/json")
+                    .header("Accept", "application/json")
+                    .POST(HttpRequest.BodyPublishers.ofString(apiPayload))
+                    .build();
+            HttpResponse<String> apiResponse = CLIENT.send(apiRequest, HttpResponse.BodyHandlers.ofString());
+
+            if (apiResponse.statusCode() == 200) {
+                JsonObject json = GSON.fromJson(apiResponse.body(), JsonObject.class);
+                apiTokenCache = json.get("api_token").getAsString();
+                return apiTokenCache;
+            } else {
+                System.err.println("API Login failed: " + apiResponse.statusCode());
+                return minecraftToken; // Fallback
+            }
+        } catch (Exception e) {
+            System.err.println("Exception during API auth: " + e.getMessage());
+            return minecraftToken; // Fallback
+        }
     }
 
     public record ConversationDTO(long id, long otherUserId, String name, boolean isOnline, String serverIp) {}
@@ -118,15 +165,15 @@ public class CraftShotApiClient {
         HttpClient.newHttpClient().sendAsync(request, HttpResponse.BodyHandlers.ofString())
                 .thenApply(response -> {
                     if (response.statusCode() == 200 || response.statusCode() == 204) {
-                        return true;
+                        return Boolean.TRUE;
                     } else {
                         System.err.println("[API Error] Failed to mark chat as read - Status: " + response.statusCode());
-                        return false;
+                        return Boolean.FALSE;
                     }
                 })
                 .exceptionally(e -> {
                     System.err.println("[API Error] Exception while marking chat as read: " + e.getMessage());
-                    return false;
+                    return Boolean.FALSE;
                 });
     }
 
@@ -191,7 +238,7 @@ public class CraftShotApiClient {
                     JsonObject json = GSON.fromJson(response.body(), JsonObject.class);
                     JsonArray messagesArray = json.getAsJsonArray("messages");
                     List<MessageDTO> list = parseMessages(messagesArray);
-                    MESSAGE_CACHE.put(conversationId, new CachedMessages(List.copyOf(list), System.currentTimeMillis()));
+                    MESSAGE_CACHE.put(Long.valueOf(conversationId), new CachedMessages(List.copyOf(list), System.currentTimeMillis()));
                     return list;
                 } else {
                     System.err.println("API Error fetchMessages - Status: " + response.statusCode());
@@ -279,7 +326,7 @@ public class CraftShotApiClient {
     public static void sendServerJoin(String serverIp) {
         CompletableFuture.runAsync(() -> {
             try {
-                com.google.gson.JsonObject payload = new com.google.gson.JsonObject();
+                JsonObject payload = new JsonObject();
                 payload.addProperty("access_token", getSessionToken());
                 payload.addProperty("server_ip", serverIp);
 
@@ -295,7 +342,7 @@ public class CraftShotApiClient {
     public static void sendServerLeave(String serverIp) {
         CompletableFuture.runAsync(() -> {
             try {
-                com.google.gson.JsonObject payload = new com.google.gson.JsonObject();
+                JsonObject payload = new JsonObject();
                 payload.addProperty("access_token", getSessionToken());
                 if (serverIp != null) {
                     payload.addProperty("server_ip", serverIp);
@@ -313,7 +360,7 @@ public class CraftShotApiClient {
     public static void sendClientHeartbeat() {
         CompletableFuture.runAsync(() -> {
             try {
-                com.google.gson.JsonObject payload = new com.google.gson.JsonObject();
+                JsonObject payload = new JsonObject();
                 payload.addProperty("access_token", getSessionToken());
 
                 HttpRequest request = HttpRequest.newBuilder().uri(URI.create("https://craftshot.net/v2/client/heartbeat")).header("Content-Type", "application/json").header("Accept", "application/json").POST(HttpRequest.BodyPublishers.ofString(GSON.toJson(payload))).build();
